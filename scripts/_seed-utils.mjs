@@ -228,6 +228,12 @@ export function parseYahooChart(data, symbol) {
 }
 
 export async function runSeed(domain, resource, canonicalKey, fetchFn, opts = {}) {
+  await runSeedAsync(domain, resource, canonicalKey, fetchFn, opts);
+  process.exit(0);
+}
+
+/** Same as runSeed but returns instead of process.exit — for use from API routes. */
+export async function runSeedAsync(domain, resource, canonicalKey, fetchFn, opts = {}) {
   const { validateFn, ttlSeconds, lockTtlMs = 120_000, extraKeys } = opts;
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const startMs = Date.now();
@@ -240,7 +246,7 @@ export async function runSeed(domain, resource, canonicalKey, fetchFn, opts = {}
   const locked = await acquireLock(`${domain}:${resource}`, runId, lockTtlMs);
   if (!locked) {
     console.log('  SKIPPED: another seed run in progress');
-    process.exit(0);
+    return;
   }
 
   try {
@@ -251,7 +257,7 @@ export async function runSeed(domain, resource, canonicalKey, fetchFn, opts = {}
       console.log(`  SKIPPED: validation failed (empty data) — preserving existing cache`);
       console.log(`\n=== Done (${Math.round(durationMs)}ms, no write) ===`);
       await releaseLock(`${domain}:${resource}`, runId);
-      process.exit(0);
+      return;
     }
     const { payloadBytes } = publishResult;
     const recordCount = Array.isArray(data) ? data.length
@@ -282,7 +288,6 @@ export async function runSeed(domain, resource, canonicalKey, fetchFn, opts = {}
 
     console.log(`\n=== Done (${Math.round(durationMs)}ms) ===`);
     await releaseLock(`${domain}:${resource}`, runId);
-    process.exit(0);
   } catch (err) {
     await releaseLock(`${domain}:${resource}`, runId);
     throw err;

@@ -67,6 +67,17 @@ const TIER_CDN_CACHE = {
 
 const NEG_SENTINEL = '__WM_NEG__';
 
+const INSIGHTS_STALE_MS = 60 * 60 * 1000; // 1 hour — trigger background refresh when older
+
+function isInsightsStaleOrMissing(names, data) {
+  if (!names.includes('insights')) return false;
+  const insights = data?.insights;
+  if (!insights) return true;
+  const generatedAt = insights.generatedAt;
+  if (!generatedAt) return true;
+  return Date.now() - new Date(generatedAt).getTime() > INSIGHTS_STALE_MS;
+}
+
 async function getCachedJsonBatch(keys) {
   const result = new Map();
   if (keys.length === 0) return result;
@@ -146,6 +157,15 @@ export default async function handler(req) {
     const val = cached.get(keys[i]);
     if (val !== undefined) data[names[i]] = val;
     else missing.push(names[i]);
+  }
+
+  // On-demand insights refresh: if insights requested and missing or older than 1h,
+  // trigger background refresh (fire-and-forget). Response returns immediately with stale or empty insights.
+  if (isInsightsStaleOrMissing(names, data)) {
+    try {
+      const refreshUrl = new URL('/api/refresh-insights', url.origin).href;
+      fetch(refreshUrl, { method: 'POST', signal: AbortSignal.timeout(200) }).catch(() => {});
+    } catch (_) { /* ignore */ }
   }
 
   const cacheControl = (tier && TIER_CACHE[tier]) || 'public, s-maxage=600, stale-while-revalidate=120, stale-if-error=900';

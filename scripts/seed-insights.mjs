@@ -318,16 +318,20 @@ async function fetchInsights() {
   return payload;
 }
 
+export { fetchInsights };
+
 function validate(data) {
   return Array.isArray(data?.topStories) && data.topStories.length >= 1;
 }
 
-runSeed('news', 'insights', CANONICAL_KEY, fetchInsights, {
-  validateFn: validate,
-  ttlSeconds: CACHE_TTL,
-  sourceVersion: 'digest-clustering-v1',
-}).catch((err) => {
-  console.error('FATAL:', err.message || err);
-  // Exit gracefully for cron — health endpoint flags stale data via seed-meta.
-  process.exit(0);
-});
+const isMain = process.argv[1]?.endsWith('seed-insights.mjs');
+if (isMain) {
+  runSeed('news', 'insights', CANONICAL_KEY, fetchInsights, {
+    validateFn: validate,
+    ttlSeconds: CACHE_TTL,
+    sourceVersion: 'digest-clustering-v1',
+  }).catch((err) => {
+    console.error('FATAL:', err.message || err);
+    process.exit(0);
+  });
+}
