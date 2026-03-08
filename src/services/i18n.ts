@@ -12,10 +12,13 @@ const SUPPORTED_LANGUAGE_SET = new Set<SupportedLanguage>(SUPPORTED_LANGUAGES);
 const loadedLanguages = new Set<SupportedLanguage>();
 
 // Lazy-load only the locale that's actually needed — all others stay out of the bundle.
-const localeModules = import.meta.glob<TranslationDictionary>(
-  ['../locales/*.json', '!../locales/en.json'],
-  { import: 'default' },
-);
+// import.meta.glob is Vite-only; in Node (e.g. overlay generator) use empty map.
+const _glob = typeof (import.meta as { glob?: (pattern: string | string[], opts?: { import: string }) => Record<string, () => Promise<TranslationDictionary>> }).glob === 'function'
+  ? (import.meta as { glob: (pattern: string | string[], opts?: { import: string }) => Record<string, () => Promise<TranslationDictionary>> }).glob
+  : null;
+const localeModules = _glob
+  ? _glob(['../locales/*.json', '!../locales/en.json'], { import: 'default' })
+  : ({} as Record<string, () => Promise<TranslationDictionary>>);
 
 const RTL_LANGUAGES = new Set(['ar']);
 
