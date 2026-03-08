@@ -582,3 +582,4 @@ If you discover a vulnerability, please see our [Security Policy](./SECURITY.md)
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=koala73/worldmonitor&type=Date&type=Date" />
  </picture>
 </a>
+
