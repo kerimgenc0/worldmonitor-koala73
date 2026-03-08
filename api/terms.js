@@ -1,0 +1,77 @@
+/**
+ * Terms of Use page — served at /terms via rewrite.
+ * Returns full HTML so /terms works even when static files aren't at root.
+ */
+const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Use — World Monitor</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0a0f0a; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif;
+           line-height: 1.6; max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem; }
+    h1 { font-size: 1.75rem; margin-bottom: 0.5rem; color: #fff; }
+    .updated { color: #888; font-size: 0.875rem; margin-bottom: 2rem; }
+    h2 { font-size: 1.1rem; margin-top: 1.75rem; margin-bottom: 0.5rem; color: #c0e0c0; }
+    p, li { color: #b0b0b0; margin-bottom: 0.75rem; }
+    ul { padding-left: 1.25rem; }
+    a { color: #4ade80; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #2a3a2a; font-size: 0.875rem; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>Terms of Use</h1>
+  <p class="updated">Last updated: March 2025</p>
+
+  <p>By using World Monitor (the "service") — including the website, APIs, and mobile applications — you agree to these terms.</p>
+
+  <h2>Description of the service</h2>
+  <p>World Monitor provides real-time global intelligence: interactive maps with multiple data layers, aggregated news and insights, world briefs, and related content. The service is offered "as is" for informational use.</p>
+
+  <h2>Acceptable use</h2>
+  <p>You may use the service for lawful, personal or internal business purposes. You agree not to:</p>
+  <ul>
+    <li>Abuse, overload, or attempt to compromise our systems or networks.</li>
+    <li>Scrape or automate access in a way that harms availability or violates our technical limits.</li>
+    <li>Use the service for any illegal purpose or in violation of applicable laws.</li>
+    <li>Remove or alter any copyright, trademark, or other proprietary notices.</li>
+  </ul>
+
+  <h2>No warranty</h2>
+  <p>The service and all content are provided "as is" without warranties of any kind. We do not guarantee accuracy, completeness, or uninterrupted availability. You rely on the service at your own risk.</p>
+
+  <h2>Limitation of liability</h2>
+  <p>To the fullest extent permitted by law, we are not liable for any indirect, incidental, special, or consequential damages arising from your use of the service or any content.</p>
+
+  <h2>Subscriptions and payments (iOS app)</h2>
+  <p>Paid features in the World Monitor iOS app are processed by Apple. Payment terms, refunds, and cancellation are governed by <a href="https://www.apple.com/legal/internet-services/itunes/">Apple's terms</a>. We do not store your payment information.</p>
+
+  <h2>Intellectual property</h2>
+  <p>World Monitor's name, branding, and the design of the service are our property or our licensors'. The underlying software may be subject to open-source licenses (e.g. AGPL) as indicated in the project. You may not use our trademarks without permission.</p>
+
+  <h2>Changes</h2>
+  <p>We may update these terms. The "Last updated" date will change when we do. Continued use after changes constitutes acceptance. For material changes we may provide notice where feasible.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about these terms: <a href="mailto:support@worldmonitor.app">support@worldmonitor.app</a>.</p>
+
+  <footer>
+    <a href="/">World Monitor</a> · <a href="/privacy">Privacy Policy</a>
+  </footer>
+</body>
+</html>`;
+
+export const config = { runtime: 'edge' };
+
+export default function handler(req) {
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  });
+}

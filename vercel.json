@@ -2,8 +2,8 @@
   "ignoreCommand": "if [ -z \"$VERCEL_GIT_PREVIOUS_SHA\" ]; then exit 1; fi; git cat-file -e $VERCEL_GIT_PREVIOUS_SHA 2>/dev/null || exit 1; git diff --quiet $VERCEL_GIT_PREVIOUS_SHA HEAD -- ':!*.md' ':!.planning' ':!docs/' ':!e2e/' ':!scripts/' ':!.github/'",
   "crons": [],
   "rewrites": [
-    { "source": "/terms", "destination": "/terms.html" },
-    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/api/terms" },
+    { "source": "/privacy", "destination": "/api/privacy" },
     { "source": "/pro", "destination": "/pro/index.html" },
     { "source": "/((?!api|assets|favico|map-styles|data|textures|pro|sw\\.js|manifest\\.webmanifest|offline\\.html|robots\\.txt|sitemap\\.xml|llms\\.txt|llms-full\\.txt|\\.well-known).*)", "destination": "/index.html" }
   ],
