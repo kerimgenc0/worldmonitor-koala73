@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package worldmonitor.map.v1;
+
+import "sebuf/http/annotations.proto";
+import "worldmonitor/map/v1/get_static_overlays.proto";
+
+// MapService provides static map overlay data and layer metadata for clients (e.g. iOS app).
+// Enables backend-driven layer list and overlay updates without shipping data in the app binary.
+service MapService {
+  option (sebuf.http.service_config) = {base_path: "/api/map/v1"};
+
+  // GetStaticOverlays returns static overlay GeoJSON-like data and layer catalog with variant order.
+  rpc GetStaticOverlays(GetStaticOverlaysRequest) returns (GetStaticOverlaysResponse) {
+    option (sebuf.http.config) = {path: "/get-static-overlays", method: HTTP_METHOD_GET};
+  }
+}

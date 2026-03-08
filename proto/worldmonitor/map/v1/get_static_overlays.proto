@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package worldmonitor.map.v1;
+
+import "sebuf/http/annotations.proto";
+
+// GetStaticOverlaysRequest optionally filters overlay and layer metadata by variant.
+message GetStaticOverlaysRequest {
+  // Variant name (e.g. "full", "tech", "finance", "happy", "commodity"). If empty, all data is returned.
+  string variant = 1 [(sebuf.http.query) = { name: "variant" }];
+}
+
+// LayerDefinition describes a single map layer for the layer picker (backend-driven).
+message LayerDefinition {
+  string key = 1;
+  string fallback_label = 2;
+  string icon = 3;
+  // Optional: "locked" or "enhanced" for premium tiers.
+  string premium = 4;
+}
+
+// VariantLayerOrder defines which layers are allowed for a variant and in what order.
+message VariantLayerOrder {
+  string variant = 1;
+  repeated string layer_keys = 2;
+  // Layers that are allowed but rendered separately (e.g. sanctions overlay).
+  repeated string svg_only_keys = 3;
+}
+
+// GetStaticOverlaysResponse returns static overlay data and layer metadata for clients (e.g. iOS).
+message GetStaticOverlaysResponse {
+  // JSON object with keys: hotspots, conflictZones, cables, pipelines, bases, nuclear, spaceports,
+  // economicCenters, waterways, minerals, datacenters, and variant-specific datasets.
+  // Clients parse this to render map overlays without hardcoding data.
+  string static_overlays_json = 1;
+  // Full layer catalog: key, label, icon, premium. Used to build the layer picker.
+  repeated LayerDefinition layer_catalog = 2;
+  // Per-variant layer order and allowed keys. Used to show only relevant layers per variant.
+  repeated VariantLayerOrder variant_layer_order = 3;
+}
