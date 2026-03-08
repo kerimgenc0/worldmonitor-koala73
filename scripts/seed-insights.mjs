@@ -188,9 +188,13 @@ function categorizeStory(title) {
 
 async function warmDigestCache() {
   const apiBase = process.env.API_BASE_URL || 'https://api.worldmonitor.app';
+  const validKeys = (process.env.WORLDMONITOR_VALID_KEYS || '').split(',').map((k) => k.trim()).filter(Boolean);
+  const apiKey = validKeys[0] || '';
+  const headers = { 'User-Agent': CHROME_UA };
+  if (apiKey) headers['X-WorldMonitor-Key'] = apiKey;
   try {
     const resp = await fetch(`${apiBase}/api/news/v1/list-feed-digest?variant=full&lang=en`, {
-      headers: { 'User-Agent': CHROME_UA },
+      headers,
       signal: AbortSignal.timeout(30_000),
     });
     if (resp.ok) console.log('  Digest cache warmed via RPC');
