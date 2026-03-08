@@ -1,5 +1,8 @@
 export const SITE_VARIANT: string = (() => {
-  if (typeof window === 'undefined') return import.meta.env.VITE_VARIANT || 'full';
+  if (typeof window === 'undefined') {
+    const env = (typeof import.meta !== 'undefined' && import.meta?.env) ? import.meta.env : { VITE_VARIANT: process.env.VITE_VARIANT };
+    return env?.VITE_VARIANT || 'full';
+  }
 
   const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
   if (isTauri) {
