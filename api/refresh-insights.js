@@ -7,7 +7,7 @@
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
 const LOCK_KEY = 'lock:insights:refresh';
-const LOCK_TTL_SEC = 600; // 10 min — only one refresh at a time
+const LOCK_TTL_SEC = 600; // 10 min — only one refresh at a time (single runner)
 
 async function tryAcquireRefreshLock() {
   const url = process.env.UPSTASH_REDIS_REST_URL;
