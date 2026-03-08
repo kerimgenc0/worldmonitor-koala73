@@ -84,7 +84,12 @@ async function getCachedJsonBatch(keys) {
 
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return result;
+  const hasUrl = Boolean(url);
+  const hasToken = Boolean(token);
+  if (!hasUrl || !hasToken) {
+    console.warn('[bootstrap] Redis env missing: hasUrl=%s hasToken=%s keysRequested=%s', hasUrl, hasToken, keys.join(','));
+    return result;
+  }
 
   // Always read unprefixed keys — bootstrap is a read-only consumer of
   // production cache data. Preview/branch deploys don't run handlers that
@@ -96,16 +101,34 @@ async function getCachedJsonBatch(keys) {
     body: JSON.stringify(pipeline),
     signal: AbortSignal.timeout(3000),
   });
-  if (!resp.ok) return result;
+
+  if (!resp.ok) {
+    const bodyPreview = (await resp.text()).slice(0, 200);
+    console.warn('[bootstrap] Redis pipeline failed: status=%s keys=%s bodyPreview=%s', resp.status, keys.join(','), bodyPreview);
+    return result;
+  }
 
   const data = await resp.json();
+  const isArray = Array.isArray(data);
+  console.warn('[bootstrap] Redis pipeline response: isArray=%s length=%s keys=%s', isArray, isArray ? data.length : 'n/a', keys.join(','));
+
   for (let i = 0; i < keys.length; i++) {
-    const raw = data[i]?.result;
+    const item = data[i];
+    const raw = item?.result;
+    const hasError = item && 'error' in item;
+    if (hasError) {
+      console.warn('[bootstrap] Redis key %s error: %s', keys[i], item.error);
+      continue;
+    }
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
         if (parsed !== NEG_SENTINEL) result.set(keys[i], parsed);
-      } catch { /* skip malformed */ }
+      } catch (parseErr) {
+        console.warn('[bootstrap] Redis key %s JSON.parse failed: %s', keys[i], parseErr?.message || parseErr);
+      }
+    } else {
+      console.warn('[bootstrap] Redis key %s: no result (item=%s)', keys[i], typeof item);
     }
   }
   return result;
