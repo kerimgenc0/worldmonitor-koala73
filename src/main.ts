@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import * as Sentry from '@sentry/browser';
 import { inject } from '@vercel/analytics';
 import { App } from './App';
+import { renderLanding } from './landing';
 import { installUtmInterceptor } from './utils/utm';
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN?.trim();
@@ -322,13 +323,30 @@ if (urlParams.get('settings') === '1') {
   );
 } else {
   installUtmInterceptor();
-  const app = new App('app');
-  app
-    .init()
-    .then(() => {
-      clearChunkReloadGuard(chunkReloadStorageKey);
-    })
-    .catch(console.error);
+  let pathname = window.location.pathname || '/';
+  if (pathname === '/monitor-world/') {
+    window.history.replaceState(null, '', '/monitor-world');
+    pathname = '/monitor-world';
+  }
+  if (pathname === '/' || pathname === '' || pathname === '/index.html') {
+    renderLanding('app');
+  } else if (pathname === '/terms') {
+    window.location.replace('/terms.html');
+  } else if (pathname === '/privacy') {
+    window.location.replace('/privacy.html');
+  } else if (pathname === '/support') {
+    window.location.replace('/support.html');
+  } else if (!pathname.startsWith('/monitor-world')) {
+    window.location.replace('/');
+  } else {
+    const app = new App('app');
+    app
+      .init()
+      .then(() => {
+        clearChunkReloadGuard(chunkReloadStorageKey);
+      })
+      .catch(console.error);
+  }
 }
 
 // Debug helpers for geo-convergence testing (remove in production)
