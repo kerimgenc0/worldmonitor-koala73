@@ -10,6 +10,7 @@ const PUBLIC_API_PATHS = new Set([
   '/api/version',
   '/api/terms',
   '/api/privacy',
+  '/api/support',
 ]);
 
 const SOCIAL_IMAGE_UA =

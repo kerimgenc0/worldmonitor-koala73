@@ -1,0 +1,43 @@
+/**
+ * Support page — served at /support via rewrite.
+ * Minimal page with support email and links to Privacy and Terms.
+ */
+const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support — World Monitor</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0a0f0a; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif;
+           line-height: 1.6; max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem; }
+    h1 { font-size: 1.75rem; margin-bottom: 0.5rem; color: #fff; }
+    p { color: #b0b0b0; margin-bottom: 1rem; }
+    a { color: #4ade80; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .email { font-size: 1.1rem; word-break: break-all; }
+    footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid #2a3a2a; font-size: 0.875rem; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>Support</h1>
+  <p>For support, email <a href="mailto:questide.works@gmail.com" class="email">questide.works@gmail.com</a>.</p>
+  <p>We'll get back to you as soon as we can. For app-related questions (including subscriptions and restore purchases), include your device type and app version if relevant.</p>
+  <footer>
+    <a href="/">World Monitor</a> · <a href="/terms">Terms of Use</a> · <a href="/privacy">Privacy Policy</a>
+  </footer>
+</body>
+</html>`;
+
+export const config = { runtime: 'edge' };
+
+export default function handler(req) {
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600',
+    },
+  });
+}
