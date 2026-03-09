@@ -46,7 +46,9 @@ export default async function handler(req) {
     const { fetchInsights } = await import('../scripts/seed-insights.mjs');
 
     const CANONICAL_KEY = 'news:insights:v1';
-    const CACHE_TTL = 1800;
+    const LKG_KEY = 'news:insights:lkg:v1';
+    const CACHE_TTL = 86400;
+    const LKG_TTL = 86400 * 7;
 
     function validate(data) {
       return Array.isArray(data?.topStories) && data.topStories.length >= 1;
@@ -55,6 +57,7 @@ export default async function handler(req) {
     await runSeedAsync('news', 'insights', CANONICAL_KEY, fetchInsights, {
       validateFn: validate,
       ttlSeconds: CACHE_TTL,
+      extraKeys: [{ key: LKG_KEY, transform: (data) => data, ttl: LKG_TTL }],
       sourceVersion: 'digest-clustering-v1',
     });
 

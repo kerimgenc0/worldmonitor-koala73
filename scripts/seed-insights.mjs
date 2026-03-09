@@ -6,8 +6,10 @@ import { clusterItems, selectTopStories } from './_clustering.mjs';
 loadEnvFile(import.meta.url);
 
 const CANONICAL_KEY = 'news:insights:v1';
+const LKG_KEY = 'news:insights:lkg:v1';
 const DIGEST_KEY = 'news:digest:v1:full:en';
-const CACHE_TTL = 1800; // 30 min — matches health maxStaleMin; survives missed cron runs
+const CACHE_TTL = 86400; // 24h — avoid empty windows between refreshes
+const LKG_TTL = 86400 * 7; // 7d backup for transient refresh failures
 const MAX_HEADLINES = 10;
 const MAX_HEADLINE_LEN = 500;
 const GROQ_MODEL = 'llama-3.1-8b-instant';
@@ -333,6 +335,7 @@ if (isMain) {
   runSeed('news', 'insights', CANONICAL_KEY, fetchInsights, {
     validateFn: validate,
     ttlSeconds: CACHE_TTL,
+    extraKeys: [{ key: LKG_KEY, transform: (data) => data, ttl: LKG_TTL }],
     sourceVersion: 'digest-clustering-v1',
   }).catch((err) => {
     console.error('FATAL:', err.message || err);

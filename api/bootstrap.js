@@ -66,6 +66,7 @@ const TIER_CDN_CACHE = {
 };
 
 const NEG_SENTINEL = '__WM_NEG__';
+const INSIGHTS_LKG_KEY = 'news:insights:lkg:v1';
 
 const INSIGHTS_STALE_MS = 60 * 60 * 1000; // 1 hour — trigger background refresh when older
 
@@ -134,6 +135,11 @@ async function getCachedJsonBatch(keys) {
   return result;
 }
 
+async function getCachedJson(key) {
+  const map = await getCachedJsonBatch([key]);
+  return map.get(key);
+}
+
 export default async function handler(req) {
   if (isDisallowedOrigin(req))
     return new Response('Forbidden', { status: 403 });
@@ -163,6 +169,7 @@ export default async function handler(req) {
 
   const keys = Object.values(registry);
   const names = Object.keys(registry);
+  const isInsightsOnlyRequest = names.length === 1 && names[0] === 'insights';
 
   let cached;
   try {
@@ -170,7 +177,12 @@ export default async function handler(req) {
   } catch {
     return new Response(JSON.stringify({ data: {}, missing: names }), {
       status: 200,
-      headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' },
+      headers: {
+        ...cors,
+        'Content-Type': 'application/json',
+        'Cache-Control': isInsightsOnlyRequest ? 'no-store' : 'no-cache',
+        'CDN-Cache-Control': isInsightsOnlyRequest ? 'no-store' : 'no-cache',
+      },
     });
   }
 
@@ -182,6 +194,18 @@ export default async function handler(req) {
     else missing.push(names[i]);
   }
 
+  // LKG fallback: if canonical insights key is temporarily missing, try backup key.
+  if (names.includes('insights') && missing.includes('insights')) {
+    try {
+      const lkg = await getCachedJson(INSIGHTS_LKG_KEY);
+      if (lkg !== undefined) {
+        data.insights = lkg;
+        const idx = missing.indexOf('insights');
+        if (idx !== -1) missing.splice(idx, 1);
+      }
+    } catch (_) { /* ignore */ }
+  }
+
   // On-demand insights refresh: if insights requested and missing or older than 1h,
   // trigger background refresh (fire-and-forget). Response returns immediately with stale or empty insights.
   if (isInsightsStaleOrMissing(names, data)) {
@@ -191,7 +215,13 @@ export default async function handler(req) {
     } catch (_) { /* ignore */ }
   }
 
-  const cacheControl = (tier && TIER_CACHE[tier]) || 'public, s-maxage=600, stale-while-revalidate=120, stale-if-error=900';
+  const insightsMissing = isInsightsOnlyRequest && missing.includes('insights');
+  const cacheControl = insightsMissing
+    ? 'no-store'
+    : (tier && TIER_CACHE[tier]) || 'public, s-maxage=600, stale-while-revalidate=120, stale-if-error=900';
+  const cdnCacheControl = insightsMissing
+    ? 'no-store'
+    : (tier && TIER_CDN_CACHE[tier]) || TIER_CDN_CACHE.fast;
 
   return new Response(JSON.stringify({ data, missing }), {
     status: 200,
@@ -199,7 +229,7 @@ export default async function handler(req) {
       ...cors,
       'Content-Type': 'application/json',
       'Cache-Control': cacheControl,
-      'CDN-Cache-Control': (tier && TIER_CDN_CACHE[tier]) || TIER_CDN_CACHE.fast,
+      'CDN-Cache-Control': cdnCacheControl,
     },
   });
 }
