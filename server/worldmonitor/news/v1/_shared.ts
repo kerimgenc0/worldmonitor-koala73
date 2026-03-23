@@ -33,6 +33,38 @@ export { deduplicateHeadlines } from './dedup.mjs';
 // SummarizeArticle: Full prompt builder (ported from _summarize-handler.js)
 // ========================================================================
 
+const LANGUAGE_LABELS: Record<string, string> = {
+  en: 'English',
+  tr: 'Turkish',
+  de: 'German',
+  es: 'Spanish',
+  fr: 'French',
+  ar: 'Arabic',
+  he: 'Hebrew',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  bg: 'Bulgarian',
+  cs: 'Czech',
+  el: 'Greek',
+  it: 'Italian',
+  ja: 'Japanese',
+  ko: 'Korean',
+  nl: 'Dutch',
+  pl: 'Polish',
+  ro: 'Romanian',
+  sv: 'Swedish',
+  th: 'Thai',
+  vi: 'Vietnamese',
+  zh: 'Chinese',
+};
+
+function getLanguageInstruction(lang: string): string {
+  const normalized = typeof lang === 'string' && lang ? lang.toLowerCase().split('-')[0]! : 'en';
+  if (normalized === 'en') return '';
+  const label = LANGUAGE_LABELS[normalized] || normalized.toUpperCase();
+  return `\nIMPORTANT: Output ONLY in ${label}. Do not use any other language.`;
+}
+
 export function buildArticlePrompts(
   headlines: string[],
   uniqueHeadlines: string[],
@@ -42,7 +74,7 @@ export function buildArticlePrompts(
   const intelSection = opts.geoContext ? `\n\n${opts.geoContext}` : '';
   const isTechVariant = opts.variant === 'tech';
   const dateContext = `Current date: ${new Date().toISOString().split('T')[0]}.${isTechVariant ? '' : ' Provide geopolitical context appropriate for the current date.'}`;
-  const langInstruction = opts.lang && opts.lang !== 'en' ? `\nIMPORTANT: Output the summary in ${opts.lang.toUpperCase()} language.` : '';
+  const langInstruction = getLanguageInstruction(opts.lang);
 
   let systemPrompt: string;
   let userPrompt: string;
@@ -86,7 +118,7 @@ Rules:
 - NEVER combine facts from different headlines
 - Focus ONLY on technology implications: funding trends, AI developments, market shifts, product strategy
 - IGNORE political implications, trade wars, government unless directly about tech policy
-- Lead with the insight, no filler or elaboration`;
+- Lead with the insight, no filler or elaboration${langInstruction}`;
     } else {
       systemPrompt = `${dateContext}
 
@@ -98,7 +130,7 @@ Rules:
 - Lead with the insight - what's significant and why
 - NEVER start with "Breaking news", "Tonight", "The key/dominant narrative is"
 - Start with substance, no filler or elaboration
-- If intelligence context is provided, use it only if it relates to your chosen headline`;
+- If intelligence context is provided, use it only if it relates to your chosen headline${langInstruction}`;
     }
     userPrompt = isTechVariant
       ? `Each headline is a separate story. What's the key tech trend?\n${headlineText}${intelSection}`

@@ -13,6 +13,30 @@ const GROQ_MODEL = 'llama-3.1-8b-instant';
 
 const TASK_NARRATION = /^(we need to|i need to|let me|i'll |i should|i will |the task is|the instructions|according to the rules|so we need to|okay[,.]\s*(i'll|let me|so|we need|the task|i should|i will)|sure[,.]\s*(i'll|let me|so|we need|the task|i should|i will|here)|first[, ]+(i|we|let)|to summarize (the headlines|the task|this)|my task (is|was|:)|step \d)/i;
 const PROMPT_ECHO = /^(summarize the top story|summarize the key|rules:|here are the rules|the top story is likely)/i;
+const LANGUAGE_LABELS = {
+  en: 'English',
+  tr: 'Turkish',
+  de: 'German',
+  es: 'Spanish',
+  fr: 'French',
+  ar: 'Arabic',
+  he: 'Hebrew',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  bg: 'Bulgarian',
+  cs: 'Czech',
+  el: 'Greek',
+  it: 'Italian',
+  ja: 'Japanese',
+  ko: 'Korean',
+  nl: 'Dutch',
+  pl: 'Polish',
+  ro: 'Romanian',
+  sv: 'Swedish',
+  th: 'Thai',
+  vi: 'Vietnamese',
+  zh: 'Chinese',
+};
 
 function stripReasoningPreamble(text) {
   const trimmed = text.trim();
@@ -115,9 +139,10 @@ async function callLLM(headlines, lang = 'en') {
   const headlineText = headlines.map((h, i) => `${i + 1}. ${h}`).join('\n');
   const dateContext = `Current date: ${new Date().toISOString().split('T')[0]}. Provide geopolitical context appropriate for the current date.`;
   const normalizedLang = normalizeInsightsLang(lang);
+  const languageLabel = LANGUAGE_LABELS[normalizedLang] || normalizedLang.toUpperCase();
   const langInstruction = normalizedLang === 'en'
     ? ''
-    : `\n- Output the summary in ${normalizedLang.toUpperCase()} language`;
+    : `\n- Output ONLY in ${languageLabel}. Do not use any other language.`;
 
   const systemPrompt = `${dateContext}
 
