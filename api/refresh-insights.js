@@ -6,15 +6,15 @@
  */
 export const config = { runtime: 'nodejs', maxDuration: 60 };
 
-const LOCK_KEY = 'lock:insights:refresh';
 const LOCK_TTL_SEC = 600; // 10 min — only one refresh at a time (single runner)
 
-async function tryAcquireRefreshLock() {
+async function tryAcquireRefreshLock(lang) {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return false;
   const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const setUrl = `${url}/set/${encodeURIComponent(LOCK_KEY)}/${encodeURIComponent(runId)}/NX/EX/${LOCK_TTL_SEC}`;
+  const lockKey = lang === 'en' ? 'lock:insights:refresh' : `lock:insights:refresh:${lang}`;
+  const setUrl = `${url}/set/${encodeURIComponent(lockKey)}/${encodeURIComponent(runId)}/NX/EX/${LOCK_TTL_SEC}`;
   const resp = await fetch(setUrl, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
@@ -33,20 +33,29 @@ export default async function handler(req) {
     });
   }
 
-  const locked = await tryAcquireRefreshLock();
-  if (!locked) {
-    return new Response(JSON.stringify({ ok: true, refreshed: false, reason: 'lock_not_acquired' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const url = new URL(req.url);
+  const requestedLang = url.searchParams.get('lang') || 'en';
 
   try {
-    const { runSeedAsync } = await import('../scripts/_seed-utils.mjs');
-    const { fetchInsights } = await import('../scripts/seed-insights.mjs');
+    const { normalizeInsightsLang } = await import('../scripts/seed-insights.mjs');
+    const lang = normalizeInsightsLang(requestedLang);
+    const locked = await tryAcquireRefreshLock(lang);
+    if (!locked) {
+      return new Response(JSON.stringify({ ok: true, refreshed: false, reason: 'lock_not_acquired', lang }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    const CANONICAL_KEY = 'news:insights:v1';
-    const LKG_KEY = 'news:insights:lkg:v1';
+    const { runSeedAsync } = await import('../scripts/_seed-utils.mjs');
+    const {
+      fetchInsights,
+      insightsCanonicalKeyForLang,
+      insightsLkgKeyForLang,
+    } = await import('../scripts/seed-insights.mjs');
+
+    const CANONICAL_KEY = insightsCanonicalKeyForLang(lang);
+    const LKG_KEY = insightsLkgKeyForLang(lang);
     const CACHE_TTL = 86400;
     const LKG_TTL = 86400 * 7;
 
@@ -54,14 +63,14 @@ export default async function handler(req) {
       return Array.isArray(data?.topStories) && data.topStories.length >= 1;
     }
 
-    await runSeedAsync('news', 'insights', CANONICAL_KEY, fetchInsights, {
+    await runSeedAsync('news', 'insights', CANONICAL_KEY, () => fetchInsights(lang), {
       validateFn: validate,
       ttlSeconds: CACHE_TTL,
       extraKeys: [{ key: LKG_KEY, transform: (data) => data, ttl: LKG_TTL }],
-      sourceVersion: 'digest-clustering-v1',
+      sourceVersion: `digest-clustering-v1:${lang}`,
     });
 
-    return new Response(JSON.stringify({ ok: true, refreshed: true }), {
+    return new Response(JSON.stringify({ ok: true, refreshed: true, lang }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });

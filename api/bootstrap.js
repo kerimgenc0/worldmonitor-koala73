@@ -66,9 +66,24 @@ const TIER_CDN_CACHE = {
 };
 
 const NEG_SENTINEL = '__WM_NEG__';
-const INSIGHTS_LKG_KEY = 'news:insights:lkg:v1';
 
 const INSIGHTS_STALE_MS = 60 * 60 * 1000; // 1 hour — trigger background refresh when older
+
+function normalizeInsightsLang(lang = 'en') {
+  const normalized = String(lang || 'en').trim().toLowerCase();
+  const base = normalized.split('-')[0];
+  return /^[a-z]{2}$/.test(base) ? base : 'en';
+}
+
+function getInsightsCacheKey(lang = 'en') {
+  const normalized = normalizeInsightsLang(lang);
+  return normalized === 'en' ? 'news:insights:v1' : `news:insights:v1:${normalized}`;
+}
+
+function getInsightsLkgKey(lang = 'en') {
+  const normalized = normalizeInsightsLang(lang);
+  return normalized === 'en' ? 'news:insights:lkg:v1' : `news:insights:lkg:v1:${normalized}`;
+}
 
 function isInsightsStaleOrMissing(names, data) {
   if (!names.includes('insights')) return false;
@@ -155,6 +170,7 @@ export default async function handler(req) {
     });
 
   const url = new URL(req.url);
+  const insightsLang = normalizeInsightsLang(url.searchParams.get('lang') || 'en');
   const tier = url.searchParams.get('tier');
   let registry;
   if (tier === 'slow' || tier === 'fast') {
@@ -165,6 +181,9 @@ export default async function handler(req) {
     registry = requested
       ? Object.fromEntries(Object.entries(BOOTSTRAP_CACHE_KEYS).filter(([k]) => requested.includes(k)))
       : BOOTSTRAP_CACHE_KEYS;
+  }
+  if (Object.prototype.hasOwnProperty.call(registry, 'insights')) {
+    registry = { ...registry, insights: getInsightsCacheKey(insightsLang) };
   }
 
   const keys = Object.values(registry);
@@ -197,7 +216,7 @@ export default async function handler(req) {
   // LKG fallback: if canonical insights key is temporarily missing, try backup key.
   if (names.includes('insights') && missing.includes('insights')) {
     try {
-      const lkg = await getCachedJson(INSIGHTS_LKG_KEY);
+      const lkg = await getCachedJson(getInsightsLkgKey(insightsLang));
       if (lkg !== undefined) {
         data.insights = lkg;
         const idx = missing.indexOf('insights');
@@ -210,8 +229,9 @@ export default async function handler(req) {
   // trigger background refresh (fire-and-forget). Response returns immediately with stale or empty insights.
   if (isInsightsStaleOrMissing(names, data)) {
     try {
-      const refreshUrl = new URL('/api/refresh-insights', url.origin).href;
-      fetch(refreshUrl, { method: 'POST', signal: AbortSignal.timeout(200) }).catch(() => {});
+      const refreshUrl = new URL('/api/refresh-insights', url.origin);
+      refreshUrl.searchParams.set('lang', insightsLang);
+      fetch(refreshUrl.href, { method: 'POST', signal: AbortSignal.timeout(200) }).catch(() => {});
     } catch (_) { /* ignore */ }
   }
 

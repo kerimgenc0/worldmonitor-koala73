@@ -5,9 +5,6 @@ import { clusterItems, selectTopStories } from './_clustering.mjs';
 
 loadEnvFile(import.meta.url);
 
-const CANONICAL_KEY = 'news:insights:v1';
-const LKG_KEY = 'news:insights:lkg:v1';
-const DIGEST_KEY = 'news:digest:v1:full:en';
 const CACHE_TTL = 86400; // 24h — avoid empty windows between refreshes
 const LKG_TTL = 86400 * 7; // 7d backup for transient refresh failures
 const MAX_HEADLINES = 10;
@@ -36,9 +33,30 @@ function sanitizeTitle(title) {
     .trim();
 }
 
-async function readDigestFromRedis() {
+function normalizeInsightsLang(lang = 'en') {
+  const normalized = String(lang || 'en').trim().toLowerCase();
+  const base = normalized.split('-')[0];
+  return /^[a-z]{2}$/.test(base) ? base : 'en';
+}
+
+function insightsCanonicalKeyForLang(lang = 'en') {
+  const normalized = normalizeInsightsLang(lang);
+  return normalized === 'en' ? 'news:insights:v1' : `news:insights:v1:${normalized}`;
+}
+
+function insightsLkgKeyForLang(lang = 'en') {
+  const normalized = normalizeInsightsLang(lang);
+  return normalized === 'en' ? 'news:insights:lkg:v1' : `news:insights:lkg:v1:${normalized}`;
+}
+
+function digestKeyForLang(lang = 'en') {
+  return `news:digest:v1:full:${normalizeInsightsLang(lang)}`;
+}
+
+async function readDigestFromRedis(lang = 'en') {
+  const digestKey = digestKeyForLang(lang);
   const { url, token } = getRedisCredentials();
-  const resp = await fetch(`${url}/get/${encodeURIComponent(DIGEST_KEY)}`, {
+  const resp = await fetch(`${url}/get/${encodeURIComponent(digestKey)}`, {
     headers: { Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(5_000),
   });
@@ -47,9 +65,10 @@ async function readDigestFromRedis() {
   return data.result ? JSON.parse(data.result) : null;
 }
 
-async function readExistingInsights() {
+async function readExistingInsights(lang = 'en') {
+  const canonicalKey = insightsCanonicalKeyForLang(lang);
   const { url, token } = getRedisCredentials();
-  const resp = await fetch(`${url}/get/${encodeURIComponent(CANONICAL_KEY)}`, {
+  const resp = await fetch(`${url}/get/${encodeURIComponent(canonicalKey)}`, {
     headers: { Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(5_000),
   });
@@ -92,9 +111,13 @@ const LLM_PROVIDERS = [
   },
 ];
 
-async function callLLM(headlines) {
+async function callLLM(headlines, lang = 'en') {
   const headlineText = headlines.map((h, i) => `${i + 1}. ${h}`).join('\n');
   const dateContext = `Current date: ${new Date().toISOString().split('T')[0]}. Provide geopolitical context appropriate for the current date.`;
+  const normalizedLang = normalizeInsightsLang(lang);
+  const langInstruction = normalizedLang === 'en'
+    ? ''
+    : `\n- Output the summary in ${normalizedLang.toUpperCase()} language`;
 
   const systemPrompt = `${dateContext}
 
@@ -105,7 +128,7 @@ Rules:
 - NEVER combine or merge people, places, or facts from different headlines into one sentence
 - Lead with WHAT happened and WHERE - be specific
 - NEVER start with "Breaking news", "Good evening", "Tonight", or TV-style openings
-- Start directly with the subject of the chosen headline
+- Start directly with the subject of the chosen headline${langInstruction}
 - No bullet points, no meta-commentary, no elaboration beyond the core facts`;
 
   const userPrompt = `Each headline below is a separate story. Pick the most important ONE and summarize only that story:\n${headlineText}`;
@@ -188,14 +211,15 @@ function categorizeStory(title) {
   return { category: 'general', threatLevel: 'moderate' };
 }
 
-async function warmDigestCache() {
+async function warmDigestCache(lang = 'en') {
+  const normalizedLang = normalizeInsightsLang(lang);
   const apiBase = process.env.API_BASE_URL || 'https://api.worldmonitor.app';
   const validKeys = (process.env.WORLDMONITOR_VALID_KEYS || '').split(',').map((k) => k.trim()).filter(Boolean);
   const apiKey = validKeys[0] || '';
   const headers = { 'User-Agent': CHROME_UA };
   if (apiKey) headers['X-WorldMonitor-Key'] = apiKey;
   try {
-    const resp = await fetch(`${apiBase}/api/news/v1/list-feed-digest?variant=full&lang=en`, {
+    const resp = await fetch(`${apiBase}/api/news/v1/list-feed-digest?variant=full&lang=${normalizedLang}`, {
       headers,
       signal: AbortSignal.timeout(30_000),
     });
@@ -206,18 +230,19 @@ async function warmDigestCache() {
   }
 }
 
-async function fetchInsights() {
-  let digest = await readDigestFromRedis();
+async function fetchInsights(lang = 'en') {
+  const normalizedLang = normalizeInsightsLang(lang);
+  let digest = await readDigestFromRedis(normalizedLang);
   if (!digest) {
     console.log('  Digest not in Redis, warming cache via RPC...');
-    await warmDigestCache();
+    await warmDigestCache(normalizedLang);
     // Wait for RPC write to propagate to Redis
     await new Promise(r => setTimeout(r, 3_000));
-    digest = await readDigestFromRedis();
+    digest = await readDigestFromRedis(normalizedLang);
   }
   if (!digest) {
     // LKG fallback: reuse existing insights if digest is unavailable
-    const existing = await readExistingInsights();
+    const existing = await readExistingInsights(normalizedLang);
     if (existing?.topStories?.length) {
       console.log('  Digest unavailable — reusing existing insights (LKG)');
       return existing;
@@ -271,7 +296,7 @@ async function fetchInsights() {
   let briefModel = '';
   let status = 'ok';
 
-  const llmResult = await callLLM(headlines);
+  const llmResult = await callLLM(headlines, normalizedLang);
   if (llmResult) {
     worldBrief = llmResult.text;
     briefProvider = llmResult.provider;
@@ -314,7 +339,7 @@ async function fetchInsights() {
 
   // LKG preservation: don't overwrite "ok" with "degraded"
   if (status === 'degraded') {
-    const existing = await readExistingInsights();
+    const existing = await readExistingInsights(normalizedLang);
     if (existing?.status === 'ok') {
       console.log('  LKG preservation: existing payload is "ok", skipping degraded overwrite');
       return existing;
@@ -324,7 +349,12 @@ async function fetchInsights() {
   return payload;
 }
 
-export { fetchInsights };
+export {
+  fetchInsights,
+  normalizeInsightsLang,
+  insightsCanonicalKeyForLang,
+  insightsLkgKeyForLang,
+};
 
 function validate(data) {
   return Array.isArray(data?.topStories) && data.topStories.length >= 1;
@@ -332,11 +362,14 @@ function validate(data) {
 
 const isMain = process.argv[1]?.endsWith('seed-insights.mjs');
 if (isMain) {
-  runSeed('news', 'insights', CANONICAL_KEY, fetchInsights, {
+  const seedLang = normalizeInsightsLang(process.env.INSIGHTS_LANG || 'en');
+  const canonicalKey = insightsCanonicalKeyForLang(seedLang);
+  const lkgKey = insightsLkgKeyForLang(seedLang);
+  runSeed('news', 'insights', canonicalKey, () => fetchInsights(seedLang), {
     validateFn: validate,
     ttlSeconds: CACHE_TTL,
-    extraKeys: [{ key: LKG_KEY, transform: (data) => data, ttl: LKG_TTL }],
-    sourceVersion: 'digest-clustering-v1',
+    extraKeys: [{ key: lkgKey, transform: (data) => data, ttl: LKG_TTL }],
+    sourceVersion: `digest-clustering-v1:${seedLang}`,
   }).catch((err) => {
     console.error('FATAL:', err.message || err);
     process.exit(0);
