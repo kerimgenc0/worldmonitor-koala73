@@ -33,7 +33,7 @@ export default async function handler(req) {
     });
   }
 
-  const url = new URL(req.url);
+  const url = new URL(req.url, 'http://localhost');
   const requestedLang = url.searchParams.get('lang') || 'en';
 
   try {
