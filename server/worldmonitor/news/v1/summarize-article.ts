@@ -21,10 +21,12 @@ import { CHROME_UA } from '../../../_shared/constants';
 
 export const TASK_NARRATION = /^(we need to|i need to|let me|i'll |i should|i will |the task is|the instructions|according to the rules|so we need to|okay[,.]\s*(i'll|let me|so|we need|the task|i should|i will)|sure[,.]\s*(i'll|let me|so|we need|the task|i should|i will|here)|first[, ]+(i|we|let)|to summarize (the headlines|the task|this)|my task (is|was|:)|step \d)/i;
 export const PROMPT_ECHO = /^(summarize the top story|summarize the key|rules:|here are the rules|the top story is likely)/i;
+/** Meta-commentary phrases (EN + Arabic/Hebrew) that are filler, not actual summary content. */
+export const META_INTRO = /^(this is the current situation|هذه هي الوضع الحالي|الوضع الحالي هو|هذا هو الوضع الحالي|זו המציאות הנוכחית|זה המצב הנוכחי)\.?\s*$/i;
 
 export function hasReasoningPreamble(text: string): boolean {
   const trimmed = text.trim();
-  return TASK_NARRATION.test(trimmed) || PROMPT_ECHO.test(trimmed);
+  return TASK_NARRATION.test(trimmed) || PROMPT_ECHO.test(trimmed) || META_INTRO.test(trimmed);
 }
 
 // ======================================================================
@@ -103,6 +105,9 @@ export async function summarizeArticle(
           lang,
         });
 
+        const langCode = (lang || 'en').toLowerCase().split('-')[0];
+        const needsExtraTokens = langCode === 'ar' || langCode === 'he';
+
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { ...providerHeaders, 'User-Agent': CHROME_UA },
@@ -113,7 +118,7 @@ export async function summarizeArticle(
               { role: 'user', content: userPrompt },
             ],
             temperature: 0.2,
-            max_tokens: 100,
+            max_tokens: needsExtraTokens ? 180 : 100,
             top_p: 0.9,
             ...extraBody,
           }),

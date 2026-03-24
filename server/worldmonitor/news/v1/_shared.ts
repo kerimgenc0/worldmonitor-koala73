@@ -62,7 +62,11 @@ function getLanguageInstruction(lang: string): string {
   const normalized = typeof lang === 'string' && lang ? lang.toLowerCase().split('-')[0]! : 'en';
   if (normalized === 'en') return '';
   const label = LANGUAGE_LABELS[normalized] || normalized.toUpperCase();
-  return `\nIMPORTANT: Output ONLY in ${label}. Do not use any other language.`;
+  let instruction = `\nIMPORTANT: Output ONLY in ${label}. Do not use any other language.`;
+  if (normalized === 'ar' || normalized === 'he') {
+    instruction += ` Do NOT start with phrases like "This is the current situation", "هذه هي الوضع الحالي", or similar meta-commentary — start directly with the summary content.`;
+  }
+  return instruction;
 }
 
 /** "Not selected" phrases the LLM may output for headlines it did not pick. */
