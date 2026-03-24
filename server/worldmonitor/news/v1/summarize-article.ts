@@ -11,6 +11,7 @@ import {
   buildArticlePrompts,
   getProviderCredentials,
   getCacheKey,
+  sanitizeSummary,
 } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 
@@ -111,7 +112,7 @@ export async function summarizeArticle(
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt },
             ],
-            temperature: 0.3,
+            temperature: 0.2,
             max_tokens: 100,
             top_p: 0.9,
             ...extraBody,
@@ -157,7 +158,8 @@ export async function summarizeArticle(
           return null;
         }
 
-        return rawContent ? { summary: rawContent, model, tokens } : null;
+        const summary = rawContent ? sanitizeSummary(rawContent) : '';
+        return summary ? { summary, model, tokens } : null;
       },
     );
 

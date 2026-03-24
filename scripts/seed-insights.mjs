@@ -48,6 +48,34 @@ function stripReasoningPreamble(text) {
   return trimmed;
 }
 
+/** "Not selected" phrases the LLM may output for headlines it did not pick. */
+const NOT_SELECTED_PHRASES = /^(?:seçilmedi|not selected|non sélectionné|nicht ausgewählt|no seleccionado|non selezionato|未被选中|未选择|선택되지 않음|não selecionado|не выбрано)\.?\s*$/i;
+
+/**
+ * Clean malformed worldBrief: numbered lists with "Seçilmedi", multiple summaries, etc.
+ * Keeps only the first substantial summary (1–2 sentences).
+ */
+function sanitizeWorldBrief(text) {
+  if (typeof text !== 'string') return '';
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return text.trim();
+  const result = [];
+  for (const line of lines) {
+    const m = line.match(/^\d+\.\s*(.+)$/);
+    if (m) {
+      const rest = m[1].trim();
+      if (NOT_SELECTED_PHRASES.test(rest)) continue;
+      if (result.length > 0) break;
+      result.push(rest);
+    } else {
+      if (result.length > 0) break;
+      result.push(line);
+    }
+  }
+  const joined = result.join(' ').replace(/\s+/g, ' ').trim();
+  return joined.length >= 20 ? joined : text.trim();
+}
+
 function sanitizeTitle(title) {
   if (typeof title !== 'string') return '';
   return title
@@ -150,6 +178,7 @@ Summarize the single most important headline in 2 concise sentences MAX (under 6
 Rules:
 - Each numbered headline below is a SEPARATE, UNRELATED story
 - Pick the ONE most significant headline and summarize ONLY that story
+- Output ONLY your 2-sentence summary. Do NOT output a numbered list. Do NOT write "Seçilmedi", "Not selected", or similar for any headline
 - NEVER combine or merge people, places, or facts from different headlines into one sentence
 - Lead with WHAT happened and WHERE - be specific
 - NEVER start with "Breaking news", "Good evening", "Tonight", or TV-style openings
@@ -176,7 +205,7 @@ Rules:
             { role: 'user', content: userPrompt },
           ],
           max_tokens: 300,
-          temperature: 0.3,
+          temperature: 0.2,
           ...provider.extraBody,
         }),
         signal: AbortSignal.timeout(provider.timeout),
@@ -205,7 +234,7 @@ Rules:
         continue;
       }
 
-      return { text, model: json.model || model, provider: provider.name };
+      return { text: sanitizeWorldBrief(text), model: json.model || model, provider: provider.name };
     } catch (err) {
       console.warn(`  ${provider.name} failed: ${err.message}`);
       continue;

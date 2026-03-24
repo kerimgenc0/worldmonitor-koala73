@@ -65,6 +65,35 @@ function getLanguageInstruction(lang: string): string {
   return `\nIMPORTANT: Output ONLY in ${label}. Do not use any other language.`;
 }
 
+/** "Not selected" phrases the LLM may output for headlines it did not pick. */
+const NOT_SELECTED_PHRASES =
+  /^(?:seçilmedi|not selected|non sélectionné|nicht ausgewählt|no seleccionado|non selezionato|未被选中|未选择|선택되지 않음|não selecionado|не выбрано)\.?\s*$/i;
+
+/**
+ * Clean malformed summary: numbered lists ("1. ..."), "Seçilmedi" lines, etc.
+ * Keeps only the first substantial summary.
+ */
+export function sanitizeSummary(text: string): string {
+  if (typeof text !== 'string') return '';
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return text.trim();
+  const result: string[] = [];
+  for (const line of lines) {
+    const m = line.match(/^\d+\.\s*(.+)$/);
+    if (m) {
+      const rest = m[1]!.trim();
+      if (NOT_SELECTED_PHRASES.test(rest)) continue;
+      if (result.length > 0) break;
+      result.push(rest);
+    } else {
+      if (result.length > 0) break;
+      result.push(line);
+    }
+  }
+  const joined = result.join(' ').replace(/\s+/g, ' ').trim();
+  return joined.length >= 20 ? joined : text.trim();
+}
+
 export function buildArticlePrompts(
   headlines: string[],
   uniqueHeadlines: string[],
@@ -87,6 +116,7 @@ Summarize the single most important tech/startup headline in 2 concise sentences
 Rules:
 - Each numbered headline below is a SEPARATE, UNRELATED story
 - Pick the ONE most significant headline and summarize ONLY that story
+- Output ONLY your 2-sentence summary. Do NOT output a numbered list. Do NOT write "Seçilmedi", "Not selected", or similar
 - NEVER combine or merge facts, names, or details from different headlines
 - Focus ONLY on technology, startups, AI, funding, product launches, or developer news
 - IGNORE political news, trade policy, tariffs, government actions unless directly about tech regulation
@@ -99,6 +129,7 @@ Summarize the single most important headline in 2 concise sentences MAX (under 6
 Rules:
 - Each numbered headline below is a SEPARATE, UNRELATED story
 - Pick the ONE most significant headline and summarize ONLY that story
+- Output ONLY your 2-sentence summary. Do NOT output a numbered list. Do NOT write "Seçilmedi", "Not selected", or similar
 - NEVER combine or merge people, places, or facts from different headlines into one sentence
 - Lead with WHAT happened and WHERE - be specific
 - NEVER start with "Breaking news", "Good evening", "Tonight", or TV-style openings
@@ -115,6 +146,7 @@ Analyze the most significant tech/startup development in 2 concise sentences MAX
 Rules:
 - Each numbered headline below is a SEPARATE, UNRELATED story
 - Pick the ONE most significant story and analyze ONLY that
+- Output ONLY your 2-sentence analysis. Do NOT output a numbered list. Do NOT write "Seçilmedi", "Not selected", or similar
 - NEVER combine facts from different headlines
 - Focus ONLY on technology implications: funding trends, AI developments, market shifts, product strategy
 - IGNORE political implications, trade wars, government unless directly about tech policy
@@ -126,6 +158,7 @@ Analyze the most significant development in 2 concise sentences MAX (under 60 wo
 Rules:
 - Each numbered headline below is a SEPARATE, UNRELATED story
 - Pick the ONE most significant story and analyze ONLY that
+- Output ONLY your 2-sentence analysis. Do NOT output a numbered list. Do NOT write "Seçilmedi", "Not selected", or similar
 - NEVER combine or merge people, places, or facts from different headlines
 - Lead with the insight - what's significant and why
 - NEVER start with "Breaking news", "Tonight", "The key/dominant narrative is"
@@ -146,8 +179,8 @@ Rules:
     userPrompt = `Translate to ${targetLang}:\n${headlines[0]}`;
   } else {
     systemPrompt = isTechVariant
-      ? `${dateContext}\n\nPick the most important tech headline and summarize it in 2 concise sentences (under 60 words). Each headline is a separate story - NEVER merge facts from different headlines. Focus on startups, AI, funding, products. Ignore politics unless directly about tech regulation.${langInstruction}`
-      : `${dateContext}\n\nPick the most important headline and summarize it in 2 concise sentences (under 60 words). Each headline is a separate, unrelated story - NEVER merge people or facts from different headlines. Lead with substance. NEVER start with "Breaking news" or "Tonight".${langInstruction}`;
+      ? `${dateContext}\n\nPick the most important tech headline and summarize it in 2 concise sentences (under 60 words). Output ONLY the summary, no numbered list. Each headline is a separate story - NEVER merge facts from different headlines. Focus on startups, AI, funding, products. Ignore politics unless directly about tech regulation.${langInstruction}`
+      : `${dateContext}\n\nPick the most important headline and summarize it in 2 concise sentences (under 60 words). Output ONLY the summary, no numbered list. Each headline is a separate, unrelated story - NEVER merge people or facts from different headlines. Lead with substance. NEVER start with "Breaking news" or "Tonight".${langInstruction}`;
     userPrompt = `Each headline is a separate story. Key takeaway from the most important one:\n${headlineText}${intelSection}`;
   }
 
