@@ -107,6 +107,7 @@ export async function summarizeArticle(
 
         const langCode = (lang || 'en').toLowerCase().split('-')[0];
         const needsExtraTokens = langCode === 'ar' || langCode === 'he';
+        const maxTokens = needsExtraTokens ? 140 : 100;
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -118,7 +119,7 @@ export async function summarizeArticle(
               { role: 'user', content: userPrompt },
             ],
             temperature: 0.2,
-            max_tokens: needsExtraTokens ? 180 : 100,
+            max_tokens: maxTokens,
             top_p: 0.9,
             ...extraBody,
           }),

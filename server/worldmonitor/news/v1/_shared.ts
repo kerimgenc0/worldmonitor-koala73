@@ -65,6 +65,7 @@ function getLanguageInstruction(lang: string): string {
   let instruction = `\nIMPORTANT: Output ONLY in ${label}. Do not use any other language.`;
   if (normalized === 'ar' || normalized === 'he') {
     instruction += ` Do NOT start with phrases like "This is the current situation", "هذه هي الوضع الحالي", or similar meta-commentary — start directly with the summary content.`;
+    instruction += ` Only state facts explicitly stated in the headlines. Do NOT invent names, places, numbers, or context not present in the text.`;
   }
   return instruction;
 }
@@ -125,6 +126,7 @@ Rules:
 - Focus ONLY on technology, startups, AI, funding, product launches, or developer news
 - IGNORE political news, trade policy, tariffs, government actions unless directly about tech regulation
 - Lead with the company/product/technology name
+- Only state facts explicitly in the headlines — do not invent names, numbers, or context
 - No bullet points, no meta-commentary, no elaboration beyond the core facts${langInstruction}`;
     } else {
       systemPrompt = `${dateContext}
@@ -139,6 +141,7 @@ Rules:
 - NEVER start with "Breaking news", "Good evening", "Tonight", or TV-style openings
 - Start directly with the subject of the chosen headline
 - If intelligence context is provided, use it only if it relates to your chosen headline
+- Only state facts explicitly in the headlines — do not invent names, numbers, or context
 - No bullet points, no meta-commentary, no elaboration beyond the core facts${langInstruction}`;
     }
     userPrompt = `Each headline below is a separate story. Pick the most important ONE and summarize only that story:\n${headlineText}${intelSection}`;
@@ -154,6 +157,7 @@ Rules:
 - NEVER combine facts from different headlines
 - Focus ONLY on technology implications: funding trends, AI developments, market shifts, product strategy
 - IGNORE political implications, trade wars, government unless directly about tech policy
+- Only state facts explicitly in the headlines — do not invent or assume details
 - Lead with the insight, no filler or elaboration${langInstruction}`;
     } else {
       systemPrompt = `${dateContext}
@@ -167,6 +171,7 @@ Rules:
 - Lead with the insight - what's significant and why
 - NEVER start with "Breaking news", "Tonight", "The key/dominant narrative is"
 - Start with substance, no filler or elaboration
+- Only state facts explicitly in the headlines — do not invent or assume details
 - If intelligence context is provided, use it only if it relates to your chosen headline${langInstruction}`;
     }
     userPrompt = isTechVariant
