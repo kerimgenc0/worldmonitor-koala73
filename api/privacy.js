@@ -73,7 +73,7 @@ const html = `<!DOCTYPE html>
   <p>We may update this policy; the date above changes when we do. Material changes will be noted in the app or on this page.</p>
 
   <h2>11. Contact</h2>
-  <p>Privacy questions and deletion requests: <a href="mailto:kerim@world-monitor.net">kerim@world-monitor.net</a>.</p>
+  <p>Privacy questions and deletion requests: <a href="mailto:support@world-monitor.net">support@world-monitor.net</a>.</p>
 
   <footer>World Monitor · <a href="/terms">Terms of Use</a></footer>
 </body>

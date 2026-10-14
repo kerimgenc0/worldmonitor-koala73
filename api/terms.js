@@ -79,7 +79,7 @@ const html = `<!DOCTYPE html>
   <p>We may update these terms; the date above changes when we do. Continued use after a change constitutes acceptance. For material changes we will provide notice where feasible.</p>
 
   <h2>13. Contact</h2>
-  <p>Questions about these terms: <a href="mailto:kerim@world-monitor.net">kerim@world-monitor.net</a>.</p>
+  <p>Questions about these terms: <a href="mailto:info@world-monitor.net">info@world-monitor.net</a>.</p>
 
   <footer>World Monitor · <a href="/privacy">Privacy Policy</a></footer>
 </body>
